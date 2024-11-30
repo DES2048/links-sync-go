@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"database/sql"
 	"fmt"
 	"strings"
 
@@ -19,17 +20,16 @@ func NewVisitedDbRepo(db *sqlx.DB) *VisitedDbRepo {
 	return repo
 }
 
-func (r *VisitedDbRepo) List() ([]DbVisited, error) {
-	visiteds := []DbVisited{}
+func (r *VisitedDbRepo) List() ([]*DbVisited, error) {
+	visiteds := []*DbVisited{}
 
-	err := r.db.Select(visiteds, "select * from visited")
+	err := r.db.Select(&visiteds, "select * from visited")
 
 	return visiteds, err
 }
 
 func (r *VisitedDbRepo) Add(data *DbCreateVisited) (*DbVisited, error) {
-	result, err := r.db.Exec("insert into visited(title, poster_url, status) values(?,?,?)", data.Title, data.PosterUrl, data.Status)
-
+	result, err := r.db.Exec("insert into visited(id, title, poster_url, status) values(?,?,?,?)", data.Id, data.Title, data.PosterUrl, data.Status)
 	if err != nil {
 		return nil, err
 	}
@@ -41,6 +41,13 @@ func (r *VisitedDbRepo) Add(data *DbCreateVisited) (*DbVisited, error) {
 
 	return r.Get(int(rowId))
 }
+
+func (r *VisitedDbRepo) AddBatch(data []*DbCreateVisited) error {
+	_, err := r.db.NamedExec("insert or ignore into visited(id, title, poster_url, status) values(:id,:title,:poster_url,:status)", data)
+
+	return err
+}
+
 func (r *VisitedDbRepo) Get(id int) (*DbVisited, error) {
 	visited := &DbVisited{}
 
@@ -49,8 +56,7 @@ func (r *VisitedDbRepo) Get(id int) (*DbVisited, error) {
 	return visited, err
 }
 
-func (r *VisitedDbRepo) UpdatePartial(id int, updateData map[string]interface{}) error {
-
+func (r *VisitedDbRepo) UpdatePartial(id int, updateData map[DbVisitedFieldName]interface{}) error {
 	updateFields := make([]string, 0, len(updateData))
 	values := make([]interface{}, 0, len(updateData))
 	values = append(values, id)
@@ -62,12 +68,24 @@ func (r *VisitedDbRepo) UpdatePartial(id int, updateData map[string]interface{})
 		idx++
 	}
 
-	_, err := r.db.Exec("UPDATE visited SET "+strings.Join(updateFields, ",")+"WHERE id=$1", values...)
+	_, err := r.db.Exec("UPDATE visited SET "+strings.Join(updateFields, ",")+" WHERE id=$1", values...)
 	return err
-
 }
 
 func (r *VisitedDbRepo) Delete(id int) error {
-	_, err := r.db.Exec("DELETE FROM visited WHERE id=$1", id)
+	result, err := r.db.Exec("DELETE FROM visited WHERE id=$1", id)
+	if err != nil {
+		return err
+	}
+
+	rowsCount, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if rowsCount == 0 {
+		return sql.ErrNoRows
+	}
+
 	return err
 }

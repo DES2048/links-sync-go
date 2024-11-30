@@ -1,7 +1,7 @@
 package storage
 
 type IVisitedRepo interface {
-	List() ([]DbVisited, error)
+	List() ([]*DbVisited, error)
 	Add(data *DbCreateVisited) (DbVisited, error)
 	Get(id int) (*DbVisited, error)
 	UpdatePartial(id int, updateData map[string]interface{}) error
