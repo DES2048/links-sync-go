@@ -33,7 +33,7 @@ func (r *VisitedDbRepo) List() ([]*DbVisited, error) {
 func (r *VisitedDbRepo) ListByIds(ids []int) ([]*DbVisited, error) {
 	visiteds := []*DbVisited{}
 
-	query, args, err := sqlx.In("SELECT id, status from visited WHERE id IN (?);", ids)
+	query, args, err := sqlx.In("SELECT * from visited WHERE id IN (?);", ids)
 	if err != nil {
 		return nil, err
 	}
@@ -130,7 +130,7 @@ func (r *VisitedDbRepo) UpdatePartial(id int, updateData *DbPatchVisited) error 
 	// fmt.Println(query)
 	// fmt.Println(values...)
 	result, err := r.db.Exec(query, values...)
-	
+
 	if err != nil {
 		return err
 	}

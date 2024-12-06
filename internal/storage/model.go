@@ -8,7 +8,7 @@ import (
 var (
 	VisitedPosterUrlRule = []validation.Rule{is.URL}
 	VisitedStatusRule    = []validation.Rule{validation.In(1, 2)}
-	VisitedTitleRule = []validation.Rule{validation.Required}
+	VisitedTitleRule     = []validation.Rule{validation.Required}
 )
 
 type DbVisited struct {
@@ -20,10 +20,10 @@ type DbVisited struct {
 }
 
 type DbCreateVisited struct {
-	Id        int    `db:"id"`
-	Title     string `db:"title"`
-	PosterUrl string `db:"poster_url"`
-	Status    int    `db:"status"`
+	Id        int    `db:"id" json:"id"`
+	Title     string `db:"title" json:"title"`
+	PosterUrl string `db:"poster_url" json:"poster_url"`
+	Status    int    `db:"status" json:"status"`
 }
 
 func (o *DbCreateVisited) Validate() error {

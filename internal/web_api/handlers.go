@@ -42,19 +42,19 @@ func NewVisitedHandler(server IApiServer) *VisitedHandler {
 func (handler *VisitedHandler) saveVisitedHandler(c echo.Context) error {
 	visitedData := []*storage.DbCreateVisited{}
 
-	data, err := io.ReadAll(c.Request().Body)
+	err := readBodyJson(c.Request(), &visitedData)
+
 	if err != nil {
-		return c.String(400, err.Error())
+		return err
 	}
 
-	err = json.Unmarshal(data, &visitedData)
-	if err != nil {
-		return c.String(400, err.Error())
+	if len(visitedData) == 0 {
+		return echo.NewHTTPError(400, "Empty array passed")
 	}
 
 	err = validation.Validate(visitedData)
 	if err != nil {
-		return c.JSONPretty(400, err, " ")
+		return echo.NewHTTPError(400, err)
 	}
 
 	// set default status value
