@@ -8,9 +8,10 @@ type Config struct {
 	} `yaml:"core"`
 	Server struct {
 		Address string `yaml:"address" env:"SERVER_ADDRESS" env-default:":6500"`
+		ApiKey  string `yaml:"apiKey" env:"API_KEY" env-required:"true"`
 	} `yaml:"server"`
 	Db struct {
-		Url string `yaml:"url" env:"DB_URL,env-required"`
+		Url string `yaml:"url" env:"DB_URL" env-required:"true"`
 	} `yaml:"db"`
 }
 

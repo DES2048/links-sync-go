@@ -2,7 +2,9 @@ package storage
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
+	"reflect"
 	"strings"
 
 	"github.com/jmoiron/sqlx"
@@ -24,6 +26,19 @@ func (r *VisitedDbRepo) List() ([]*DbVisited, error) {
 	visiteds := []*DbVisited{}
 
 	err := r.db.Select(&visiteds, "select * from visited")
+
+	return visiteds, err
+}
+
+func (r *VisitedDbRepo) ListByIds(ids []int) ([]*DbVisited, error) {
+	visiteds := []*DbVisited{}
+
+	query, args, err := sqlx.In("SELECT id, status from visited WHERE id IN (?);", ids)
+	if err != nil {
+		return nil, err
+	}
+
+	err = r.db.Select(&visiteds, query, args...)
 
 	return visiteds, err
 }
@@ -52,24 +67,14 @@ func (r *VisitedDbRepo) Get(id int) (*DbVisited, error) {
 	visited := &DbVisited{}
 
 	err := r.db.Get(visited, "select * from visited where id=$1", id)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrNotFound
+		}
 
-	return visited, err
-}
-
-func (r *VisitedDbRepo) UpdatePartial(id int, updateData map[DbVisitedFieldName]interface{}) error {
-	updateFields := make([]string, 0, len(updateData))
-	values := make([]interface{}, 0, len(updateData))
-	values = append(values, id)
-
-	idx := 2
-	for key, val := range updateData {
-		updateFields = append(updateFields, fmt.Sprintf("%s=$%d", key, idx))
-		values = append(values, val)
-		idx++
+		return nil, err
 	}
-
-	_, err := r.db.Exec("UPDATE visited SET "+strings.Join(updateFields, ",")+" WHERE id=$1", values...)
-	return err
+	return visited, nil
 }
 
 func (r *VisitedDbRepo) Delete(id int) error {
@@ -84,8 +89,61 @@ func (r *VisitedDbRepo) Delete(id int) error {
 	}
 
 	if rowsCount == 0 {
-		return sql.ErrNoRows
+		return ErrNotFound
 	}
 
+	return err
+}
+
+func (r *VisitedDbRepo) UpdatePartial(id int, updateData *DbPatchVisited) error {
+	// fields for update
+	updateFields := make([]string, 0)
+	// corresponding values
+	values := make([]interface{}, 0)
+
+	// get fields and its vals from struct ignoring nil values
+	v := reflect.ValueOf(updateData).Elem()
+	t := v.Type()
+
+	for i := 0; i < v.NumField(); i++ {
+		fld := v.Field(i)
+
+		var val interface{}
+
+		if fld.IsNil() {
+			continue // ignore if nil
+		} else {
+			val = fld.Elem().Interface() // pointer deref
+		}
+
+		// get db field from struct
+		colname := strings.Split(t.Field(i).Tag.Get("db"), ",")[0]
+
+		updateFields = append(updateFields, fmt.Sprintf("%s=?", colname))
+		values = append(values, val)
+	}
+
+	// apending id
+	values = append(values, id)
+	query := "UPDATE visited SET " + strings.Join(updateFields, ",") + " WHERE id=?"
+
+	// fmt.Println(query)
+	// fmt.Println(values...)
+	result, err := r.db.Exec(query, values...)
+	
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		return ErrNotFound
+	}
+
+	// fmt.Printf("rows affected %v\n", rowsAffected)
 	return err
 }

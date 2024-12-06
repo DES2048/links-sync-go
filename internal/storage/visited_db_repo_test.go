@@ -1,7 +1,6 @@
 package storage_test
 
 import (
-	"database/sql"
 	"testing"
 
 	"links-sync-go/internal/storage"
@@ -128,7 +127,7 @@ func TestVisitedRepo_Get(t *testing.T) {
 
 	got, err := repo.Get(1)
 
-	assert.ErrorIs(t, err, sql.ErrNoRows)
+	assert.ErrorIs(t, err, storage.ErrNotFound)
 
 	expect := &storage.DbCreateVisited{
 		Id:    1,
@@ -160,8 +159,8 @@ func TestVisitedRepo_PartialUpdate(t *testing.T) {
 	assert.Nil(t, err)
 
 	newTitle := "new title"
-	updateData := map[storage.DbVisitedFieldName]interface{}{
-		storage.DbVisitedFieldNameTitle: newTitle,
+	updateData := &storage.DbPatchVisited{
+		Title: &newTitle,
 	}
 
 	err = repo.UpdatePartial(forUpdate.Id, updateData)
@@ -169,7 +168,7 @@ func TestVisitedRepo_PartialUpdate(t *testing.T) {
 	assert.Nil(t, err)
 	got, err := repo.Get(forUpdate.Id)
 	assert.Nil(t, err)
-	assert.Equal(t, got.Title, forUpdate.Title)
+	assert.Equal(t, got.Title, newTitle)
 	// case not found
 	// case no fields specified
 	// case id in the fields
@@ -186,7 +185,7 @@ func TestVisitedRepo_Delete(t *testing.T) {
 
 	err := repo.Delete(1)
 
-	assert.ErrorIs(t, err, sql.ErrNoRows)
+	assert.ErrorIs(t, err, storage.ErrNotFound)
 
 	forDelete := &storage.DbCreateVisited{
 		Id:    1,
@@ -201,5 +200,5 @@ func TestVisitedRepo_Delete(t *testing.T) {
 	assert.Nil(t, err)
 
 	_, err = repo.Get(forDelete.Id)
-	assert.ErrorIs(t, err, sql.ErrNoRows)
+	assert.ErrorIs(t, err, storage.ErrNotFound)
 }

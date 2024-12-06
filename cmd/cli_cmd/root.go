@@ -18,10 +18,10 @@ func init() {
 var rootCmd = &cobra.Command{
 	Use:   "links-sync-server",
 	Short: "Links sync backend server",
-	Run: func(cmd *cobra.Command, args []string) {
+	/*Run: func(cmd *cobra.Command, args []string) {
 
 		cmd.Help()
-	},
+	},*/
 }
 
 func Execute() {
