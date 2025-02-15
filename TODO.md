@@ -7,7 +7,7 @@
 - [x] add config flag
 - [x] add runserver cmd
 - [x] write runserver cmd
-- [ ] read config before all comands
+- [ ] read config before all commands
 
 ### setup config
 - [x] setup clean env
@@ -16,13 +16,16 @@
 - [x] write read config method
 - [x] how to set required for field?
 - [ ] config for logging
+  - [x] log level
+  - [ ] log file
 
 ### Web API
 - [x] setup echo
 - [x] create server struct
 - [x] create server from config
 - [x] add handlers
-- [ ] setup request logger
+- [x] setup request logger
+- [ ] error handler
 
 ### validation
 - [ ] deal with validation error

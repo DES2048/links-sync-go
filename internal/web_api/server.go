@@ -1,6 +1,9 @@
 package webapi
 
 import (
+	"context"
+	"log/slog"
+
 	"links-sync-go/internal/config"
 	"links-sync-go/internal/storage"
 
@@ -23,13 +26,32 @@ type ApiServer struct {
 func NewApiServer(config *config.Config) *ApiServer {
 	e := echo.New()
 	e.Debug = true
+	// set up early
+	logger := slog.Default()
 
-	/*
-	   e.Use(middleware.RequestLoggerWithConfig(middleware.RequestLoggerConfig{
-	       LogURI: true,
-	       LogStatus: true,
-	       LogError: true,
-	   }))*/
+	e.Use(middleware.RequestLoggerWithConfig(middleware.RequestLoggerConfig{
+		LogURI:    true,
+		LogMethod: true,
+		LogStatus: true,
+		LogError:  true,
+		LogValuesFunc: func(c echo.Context, v middleware.RequestLoggerValues) error {
+			logAttrs := []slog.Attr{
+				slog.String("method", v.Method),
+				slog.String("uri", v.URI),
+				slog.Int("status", v.Status),
+			}
+
+			if v.Error != nil {
+				logAttrs = append(logAttrs,
+					slog.String("err", v.Error.Error()),
+				)
+			}
+
+			logger.LogAttrs(context.Background(), slog.LevelInfo, "REQUEST", logAttrs...)
+
+			return nil
+		},
+	}))
 
 	e.Use(middleware.CORS())
 	e.Use(middleware.KeyAuthWithConfig(middleware.KeyAuthConfig{
@@ -38,6 +60,7 @@ func NewApiServer(config *config.Config) *ApiServer {
 			return auth == config.Server.ApiKey, nil
 		},
 	}))
+
 	e.GET("/", func(c echo.Context) error {
 		return c.String(200, "Links sync here...")
 	})
