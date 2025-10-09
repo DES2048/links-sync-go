@@ -1,9 +1,8 @@
 package storage_test
 
 import (
-	"testing"
-
 	"links-sync-go/internal/storage"
+	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -26,6 +25,8 @@ func TestVisitedRepo_Add(t *testing.T) {
 	assert.Nil(t, err)
 
 	assert.Equal(t, got.Id, data.Id)
+	assert.Equal(t, got.Title, data.Title)
+	assert.Equal(t, got.PosterUrl, data.PosterUrl)
 	assert.NotEmpty(t, got.AddDate)
 }
 
