@@ -43,7 +43,6 @@ func (handler *VisitedHandler) saveVisitedHandler(c echo.Context) error {
 	visitedData := []*storage.DbCreateVisited{}
 
 	err := readBodyJson(c.Request(), &visitedData)
-
 	if err != nil {
 		return err
 	}
@@ -169,5 +168,5 @@ func (handler *VisitedHandler) patchVisitedHandler2(c echo.Context) error {
 		return err
 	}
 
-	return c.String(200, "patch visited")
+	return c.String(200, "ok")
 }
