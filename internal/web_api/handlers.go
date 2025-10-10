@@ -4,11 +4,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
+	"links-sync-go/internal/storage"
 	"net/http"
 	"strconv"
-
-	"links-sync-go/internal/storage"
 
 	validation "github.com/go-ozzo/ozzo-validation"
 	"github.com/labstack/echo/v4"
@@ -30,19 +28,21 @@ func readBodyJson(r *http.Request, value any) error {
 }
 
 type VisitedHandler struct {
-	server IApiServer
+	server      IApiServer
+	visitedRepo storage.IVisitedRepo
 }
 
 func NewVisitedHandler(server IApiServer) *VisitedHandler {
 	return &VisitedHandler{
-		server: server,
+		server:      server,
+		visitedRepo: server.Storage().VisitedRepo(),
 	}
 }
 
 func (handler *VisitedHandler) saveVisitedHandler(c echo.Context) error {
 	visitedData := []*storage.DbCreateVisited{}
 
-	err := readBodyJson(c.Request(), &visitedData)
+	err := c.Bind(&visitedData)
 	if err != nil {
 		return err
 	}
@@ -56,15 +56,7 @@ func (handler *VisitedHandler) saveVisitedHandler(c echo.Context) error {
 		return echo.NewHTTPError(400, err)
 	}
 
-	// set default status value
-	for _, vis := range visitedData {
-		if vis.Status == 0 {
-			vis.Status = 1
-		}
-	}
-
-	repo := handler.server.Storage().VisitedRepo()
-	err = repo.AddBatch(visitedData)
+	err = handler.visitedRepo.AddBatch(visitedData)
 	if err != nil {
 		return c.String(500, fmt.Sprintf("%s", err))
 	}
@@ -73,18 +65,11 @@ func (handler *VisitedHandler) saveVisitedHandler(c echo.Context) error {
 
 func (handler *VisitedHandler) getVisitedByIds(c echo.Context) error {
 	idsData := visitedIdsPayload{}
-
-	data, err := io.ReadAll(c.Request().Body)
+	err := c.Bind(&idsData)
 	if err != nil {
-		return c.String(400, err.Error())
+		return err
 	}
-
-	err = json.Unmarshal(data, &idsData)
-	if err != nil {
-		return c.String(400, err.Error())
-	}
-
-	visited, err := handler.server.Storage().VisitedRepo().ListByIds(idsData.Ids)
+	visited, err := handler.visitedRepo.ListByIds(idsData.Ids)
 	if err != nil {
 		return c.String(500, err.Error())
 	}
@@ -101,9 +86,7 @@ func (handler *VisitedHandler) getVisitedByIds(c echo.Context) error {
 }
 
 func (handler *VisitedHandler) getVisitedListHandler(c echo.Context) error {
-	repo := handler.server.Storage().VisitedRepo()
-
-	data, err := repo.List()
+	data, err := handler.visitedRepo.List()
 	if err != nil {
 		return c.String(500, err.Error())
 	}
@@ -116,7 +99,7 @@ func (handler *VisitedHandler) getVisitedHandler(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	v, err := handler.server.Storage().VisitedRepo().Get(id)
+	v, err := handler.visitedRepo.Get(id)
 	if err != nil {
 		if errors.Is(err, storage.ErrNotFound) {
 			return echo.NewHTTPError(400, err)
@@ -133,7 +116,7 @@ func (handler *VisitedHandler) deleteVisitedHandler(c echo.Context) error {
 		return err
 	}
 
-	err = handler.server.Storage().VisitedRepo().Delete(id)
+	err = handler.visitedRepo.Delete(id)
 	if err != nil {
 		return c.String(400, err.Error())
 	}
@@ -160,7 +143,7 @@ func (handler *VisitedHandler) patchVisitedHandler2(c echo.Context) error {
 		return echo.NewHTTPError(400, err)
 	}
 
-	err = handler.server.Storage().VisitedRepo().UpdatePartial(id, patchData)
+	err = handler.visitedRepo.UpdatePartial(id, patchData)
 	if err != nil {
 		if errors.Is(err, storage.ErrNotFound) {
 			return echo.NewHTTPError(400, err)

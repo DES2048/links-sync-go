@@ -13,33 +13,45 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestVisitedHandlers_SaveVisited(t *testing.T) {
+var visitedDataCreate = []*storage.DbCreateVisited{
+	{
+		Id:        1,
+		Title:     "title1",
+		PosterUrl: "https://some_url",
+	},
+	{
+		Id:        2,
+		Title:     "title2",
+		PosterUrl: "https://some_url2",
+		Status:    2,
+	},
+	{
+		Id:    3,
+		Title: "title3",
+	},
+}
 
-	server := TestServer(t)
-
-	// test happy case
-	data := []*storage.DbCreateVisited{
-		{
-			Id:        1,
-			Title:     "title1",
-			PosterUrl: "https://some_url",
-		},
-		{
-			Id:        2,
-			Title:     "title2",
-			PosterUrl: "https://some_url2",
-			Status:    2,
-		},
-		{
-			Id:    3,
-			Title: "title3",
-		},
+func createRequest(method string, url string, body interface{}) *http.Request {
+	dataJson, err := json.Marshal(body)
+	if err != nil {
+		panic("Error while marshall to json")
 	}
 
-	// create want
-	want := make([]*storage.DbVisited, 0, len(data))
+	req, _ := http.NewRequest(method, url, bytes.NewReader(dataJson))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 
-	for _, e := range data {
+	return req
+}
+
+func TestVisitedHandlers_SaveVisited(t *testing.T) {
+	server := TestServer(t)
+
+	// TEST happy case
+
+	// create want
+	want := make([]*storage.DbVisited, 0, len(visitedDataCreate))
+
+	for _, e := range visitedDataCreate {
 		status := e.Status
 		if status == 0 {
 			status = 1 // default value
@@ -53,22 +65,15 @@ func TestVisitedHandlers_SaveVisited(t *testing.T) {
 		})
 	}
 
-	dataJson, err := json.Marshal(data)
-	if err != nil {
-		t.Fatalf("Error while marshall to json %s\n", err)
-	}
-
 	e := echo.New()
-	req, _ := http.NewRequest(http.MethodPost, "/", bytes.NewReader(dataJson))
-	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
-	//req.Header.Set(echo.HeaderAuthorization, "Bearer ")
+	req := createRequest(http.MethodPost, "/", visitedDataCreate)
 	resp := httptest.NewRecorder()
 
 	c := e.NewContext(req, resp)
 
 	handler := NewVisitedHandler(server)
 
-	err = handler.saveVisitedHandler(c)
+	err := handler.saveVisitedHandler(c)
 
 	assert.Nil(t, err)
 	assert.Equal(t, 200, resp.Code)
@@ -80,13 +85,13 @@ func TestVisitedHandlers_SaveVisited(t *testing.T) {
 	*/
 
 	// check results
-	ids := utils.SliceMap(data, func(e *storage.DbCreateVisited) int {
+	ids := utils.SliceMap(visitedDataCreate, func(e *storage.DbCreateVisited) int {
 		return e.Id
 	})
 	gotVisited, err := server.Storage().VisitedRepo().ListByIds(ids)
 
 	assert.Nil(t, err)
-	assert.Equal(t, len(data), len(gotVisited))
+	assert.Equal(t, len(visitedDataCreate), len(gotVisited))
 
 	// drop add date
 	for _, e := range gotVisited {
@@ -101,10 +106,9 @@ func TestVisitedHandlers_SaveVisited(t *testing.T) {
 
 	// test validation
 
-	// test empty array
+	// TEST empty array
 	testData := []*storage.DbCreateVisited{}
-	dataJson, _ = json.Marshal(testData)
-	req, _ = http.NewRequest(http.MethodPost, "/", bytes.NewReader(dataJson))
+	req = createRequest(http.MethodPost, "/", testData)
 	resp = httptest.NewRecorder()
 
 	c = e.NewContext(req, resp)
@@ -116,14 +120,13 @@ func TestVisitedHandlers_SaveVisited(t *testing.T) {
 
 	assert.ErrorAs(t, err, &httpErr)
 
-	assert.Equal(t, httpErr.Code, 400)
+	assert.Equal(t, 400, httpErr.Code)
 
 	// test required
 	testData = []*storage.DbCreateVisited{
 		{},
 	}
-	dataJson, _ = json.Marshal(testData)
-	req, _ = http.NewRequest(http.MethodPost, "/", bytes.NewReader(dataJson))
+	req = createRequest(http.MethodPost, "/", testData)
 	resp = httptest.NewRecorder()
 
 	c = e.NewContext(req, resp)
@@ -131,11 +134,50 @@ func TestVisitedHandlers_SaveVisited(t *testing.T) {
 
 	assert.NotNil(t, err)
 
-	//errs := make(validation.Errors)
+	// errs := make(validation.Errors)
 
 	assert.ErrorAs(t, err, &httpErr)
 
-	assert.Equal(t, httpErr.Code, 400)
+	assert.Equal(t, 400, httpErr.Code)
 
 	// test status
+}
+
+func TestVisitedHandlers_GetByIds(t *testing.T) {
+	server := TestServer(t)
+
+	data := visitedIdsPayload{
+		[]int{1, 2, 4},
+	}
+
+	server.Storage().VisitedRepo().AddBatch(visitedDataCreate)
+
+	e := echo.New()
+
+	req := createRequest(http.MethodPost, "/", data)
+	resp := httptest.NewRecorder()
+
+	c := e.NewContext(req, resp)
+
+	handler := NewVisitedHandler(server)
+
+	err := handler.getVisitedByIds(c)
+
+	assert.Nil(t, err)
+	assert.Equal(t, 200, resp.Code)
+
+	var respBoby []IdStatusReponse
+	_ = json.NewDecoder(resp.Body).Decode(&respBoby)
+	expected := []IdStatusReponse{
+		{
+			visitedDataCreate[0].Id,
+			1,
+		},
+		{
+			visitedDataCreate[1].Id,
+			visitedDataCreate[1].Status,
+		},
+	}
+
+	assert.ElementsMatch(t, expected, respBoby)
 }
