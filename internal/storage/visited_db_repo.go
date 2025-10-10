@@ -44,7 +44,12 @@ func (r *VisitedDbRepo) ListByIds(ids []int) ([]*DbVisited, error) {
 }
 
 func (r *VisitedDbRepo) Add(data *DbCreateVisited) (*DbVisited, error) {
-	result, err := r.db.Exec("insert into visited(id, title, poster_url, status) values(?,?,?,?)", data.Id, data.Title, data.PosterUrl, data.Status)
+	// set default status
+	status := 1
+	if data.Status > 0 {
+		status = data.Status
+	}
+	result, err := r.db.Exec("insert into visited(id, title, poster_url, status) values(?,?,?,?)", data.Id, data.Title, data.PosterUrl, status)
 	if err != nil {
 		return nil, err
 	}
@@ -58,6 +63,11 @@ func (r *VisitedDbRepo) Add(data *DbCreateVisited) (*DbVisited, error) {
 }
 
 func (r *VisitedDbRepo) AddBatch(data []*DbCreateVisited) error {
+	for _, d := range data {
+		if d.Status == 0 {
+			d.Status = 1
+		}
+	}
 	_, err := r.db.NamedExec("insert or ignore into visited(id, title, poster_url, status) values(:id,:title,:poster_url,:status)", data)
 
 	return err
@@ -118,7 +128,7 @@ func (r *VisitedDbRepo) UpdatePartial(id int, updateData *DbPatchVisited) error 
 
 		// get db field from struct
 		colname := strings.Split(t.Field(i).Tag.Get("db"), ",")[0]
-
+		// FIXME: potentional sql injection
 		updateFields = append(updateFields, fmt.Sprintf("%s=?", colname))
 		values = append(values, val)
 	}
@@ -130,7 +140,6 @@ func (r *VisitedDbRepo) UpdatePartial(id int, updateData *DbPatchVisited) error 
 	// fmt.Println(query)
 	// fmt.Println(values...)
 	result, err := r.db.Exec(query, values...)
-
 	if err != nil {
 		return err
 	}
