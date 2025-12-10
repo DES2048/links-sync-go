@@ -1,7 +1,7 @@
 core:
   logLevel: info
 server:
-  apiKey: "very_strong"
+  apiKey: "key"
 db:
   url: "db.sqlite3"
 
