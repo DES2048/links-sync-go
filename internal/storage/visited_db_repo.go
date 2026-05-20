@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/jmoiron/sqlx"
+	"github.com/mattn/go-sqlite3"
 	_ "github.com/mattn/go-sqlite3"
 )
 
@@ -51,15 +52,23 @@ func (r *VisitedDbRepo) Add(data *DbCreateVisited) (*DbVisited, error) {
 	}
 	result, err := r.db.Exec("insert into visited(id, title, poster_url, status) values(?,?,?,?)", data.Id, data.Title, data.PosterUrl, status)
 	if err != nil {
+
+		var sqliteErr sqlite3.Error
+		if errors.As(err, &sqliteErr) {
+			if sqliteErr.Code == sqlite3.ErrConstraint && sqliteErr.ExtendedCode == sqlite3.ErrConstraintPrimaryKey {
+				err = NewErrAlreadyExists(fmt.Sprintf("topic with id %d already exists", data.Id))
+			}
+		}
+
 		return nil, err
 	}
 
-	rowId, err := result.LastInsertId()
+	rowID, err := result.LastInsertId()
 	if err != nil {
 		return nil, err
 	}
 
-	return r.Get(int(rowId))
+	return r.Get(int(rowID))
 }
 
 func (r *VisitedDbRepo) AddBatch(data []*DbCreateVisited) error {

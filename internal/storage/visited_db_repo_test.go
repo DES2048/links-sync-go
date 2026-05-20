@@ -1,9 +1,11 @@
 package storage_test
 
 import (
-	"links-sync-go/internal/storage"
 	"testing"
 
+	"links-sync-go/internal/storage"
+
+	"github.com/mattn/go-sqlite3"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -28,6 +30,51 @@ func TestVisitedRepo_Add(t *testing.T) {
 	assert.Equal(t, got.Title, data.Title)
 	assert.Equal(t, got.PosterUrl, data.PosterUrl)
 	assert.NotEmpty(t, got.AddDate)
+}
+
+func TestVisitedRepo_Add_WithInvalidStatus(t *testing.T) {
+	db := storage.TestInMemoDb(t)
+	defer db.Close()
+
+	repo := storage.NewVisitedDbRepo(db)
+
+	_, err := repo.Add(&storage.DbCreateVisited{
+		Id:     1,
+		Title:  "some title",
+		Status: 4,
+	})
+
+	var sqlErr sqlite3.Error
+	// check that is a sqlite3.Error
+	assert.ErrorAs(t, err, &sqlErr)
+	// check that code is constraint failed
+	assert.EqualValues(t, 19, sqlErr.Code)
+	// check that extended code is check constraint failed
+	assert.EqualValues(t, sqlErr.ExtendedCode, 275)
+	// t.Logf("err type %T, value: %#v", err, err)
+}
+
+func TestVisitedRepo_Add_WithIDAlreadyExists(t *testing.T) {
+	db := storage.TestInMemoDb(t)
+	defer db.Close()
+
+	repo := storage.NewVisitedDbRepo(db)
+
+	repo.Add(&storage.DbCreateVisited{
+		Id:     1,
+		Title:  "some title",
+		Status: 1,
+	})
+
+	// add another topic with same id
+	_, err := repo.Add(&storage.DbCreateVisited{
+		Id:     1,
+		Title:  "some title2",
+		Status: 2,
+	})
+
+	var tErr storage.ErrAlreadyExists
+	assert.ErrorAs(t, err, &tErr)
 }
 
 func TestVisitedRepo_AddBatch(t *testing.T) {
