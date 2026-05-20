@@ -1,6 +1,8 @@
 package storage
 
 import (
+	"fmt"
+
 	"links-sync-go/internal/config"
 
 	"github.com/jmoiron/sqlx"
@@ -27,23 +29,10 @@ type DbStorage struct {
 }
 
 func NewDbStorage(config *config.Config) (*DbStorage, error) {
-	db, err := sqlx.Open("sqlite3", config.Db.Url)
+	db, err := NewDB(config.Db.Url)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to open db with url: %s, cause: %w", config.Db.Url, err)
 	}
-
-	schema := `
-		CREATE TABLE IF NOT EXISTS visited (
-			id integer PRIMARY KEY,
-			title VARCHAR NOT NULL,
-            add_date VARCHAR NOT NULL DEFAULT(datetime()),
-			poster_url varchar,
-			status integer NOT NULL DEFAULT 1
-		);
-	`
-
-	db.MustExec(schema)
-
 	visitedRepo := NewVisitedDbRepo(db)
 
 	return &DbStorage{
