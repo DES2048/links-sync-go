@@ -98,6 +98,7 @@ func TestVisitedRepo_AddBatch(t *testing.T) {
 		},
 	}
 
+	// make expected list of DbVisited
 	expected := make([]*storage.DbVisited, 0, len(data))
 	for _, v := range data {
 		expected = append(expected, &storage.DbVisited{
@@ -108,18 +109,40 @@ func TestVisitedRepo_AddBatch(t *testing.T) {
 		})
 	}
 
+	// run method
 	err := repo.AddBatch(data)
 	assert.Nil(t, err)
 
+	// get list
 	got, err := repo.List()
 
+	// unset AddDate for comparsion
 	for _, gotElem := range got {
 		gotElem.AddDate = ""
 	}
 
+	// expect no err
 	assert.Nil(t, err)
 
+	// expect elems match
 	assert.ElementsMatch(t, expected, got)
+
+	// CASE add batch with existed id
+	elem := &storage.DbCreateVisited{
+		Id:        1,
+		Title:     "new title",
+		PosterUrl: "new poster url",
+	}
+
+	err = repo.AddBatch([]*storage.DbCreateVisited{elem})
+	assert.Nil(t, err)
+
+	// get elem from db
+	got2, err := repo.Get(1)
+	assert.Nil(t, err)
+
+	got2.AddDate = ""
+	assert.EqualValues(t, expected[0], got2)
 }
 
 func TestVisitedRepo_List(t *testing.T) {
