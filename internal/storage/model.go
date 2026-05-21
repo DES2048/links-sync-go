@@ -27,7 +27,8 @@ type DbCreateVisited struct {
 }
 
 func (o *DbCreateVisited) Validate() error {
-	return validation.ValidateStruct(o,
+	return validation.ValidateStruct(
+		o,
 		validation.Field(&o.Id, validation.Required),
 		validation.Field(&o.Title, VisitedTitleRule...),
 		validation.Field(&o.PosterUrl, VisitedPosterUrlRule...),
@@ -36,14 +37,14 @@ func (o *DbCreateVisited) Validate() error {
 }
 
 type DbPatchVisited struct {
-	Title     *string `db:"title"`
-	PosterUrl *string `db:"poster_url"`
-	Status    *int    `db:"status"`
+	Title     *string `db:"title" json:"title"`
+	PosterUrl *string `db:"poster_url" json:"poster_url"`
+	Status    *int    `db:"status" json:"status"`
 }
 
 func (o *DbPatchVisited) Validate() error {
-	return validation.ValidateStruct(o,
-		validation.Field(&o.Title, VisitedTitleRule...),
+	return validation.ValidateStruct(
+		o,
 		validation.Field(&o.PosterUrl, VisitedPosterUrlRule...),
 		validation.Field(&o.Status, VisitedStatusRule...),
 	)
