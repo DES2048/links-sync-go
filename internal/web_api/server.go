@@ -2,10 +2,13 @@ package webapi
 
 import (
 	"context"
+	"log/slog"
+	"net/http"
+
 	"links-sync-go/internal/config"
 	"links-sync-go/internal/storage"
-	"log/slog"
 
+	validation "github.com/go-ozzo/ozzo-validation"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 )
@@ -14,6 +17,7 @@ type IApiServer interface {
 	Run() error
 	Storage() storage.IStorage
 	Config() *config.Config
+	Echo() *echo.Echo
 }
 
 type ApiServer struct {
@@ -25,6 +29,24 @@ type ApiServer struct {
 func NewApiServer(config *config.Config) *ApiServer {
 	e := echo.New()
 	e.Debug = true
+
+	// error handler
+	e.HTTPErrorHandler = func(err error, c echo.Context) {
+		if c.Response().Committed {
+			return
+		}
+
+		err2 := err
+		if storage.IsErrNotFound(err) {
+			err2 = echo.NewHTTPError(http.StatusNotFound, err)
+		}
+
+		if validErr, ok := err.(validation.Errors); ok {
+			err2 = echo.NewHTTPError(http.StatusBadRequest, validErr)
+		}
+
+		e.DefaultHTTPErrorHandler(err2, c)
+	}
 
 	storage, _ := storage.NewDbStorage(config)
 
@@ -49,7 +71,7 @@ func NewApiServer(config *config.Config) *ApiServer {
 	visitedGroup.DELETE("/:id", visitedHandler.deleteVisitedHandler)
 	visitedGroup.PATCH("/:id", visitedHandler.patchVisitedHandler2)
 
-	e.POST("/save-links", visitedHandler.saveVisitedHandler)
+	e.POST("/save-links", saveVisitedHandler(storage.VisitedRepo()))
 
 	return server
 }
@@ -73,7 +95,8 @@ func (s *ApiServer) SetupMiddleware() {
 			}
 
 			if v.Error != nil {
-				logAttrs = append(logAttrs,
+				logAttrs = append(
+					logAttrs,
 					slog.String("err", v.Error.Error()),
 				)
 			}
@@ -102,4 +125,8 @@ func (s *ApiServer) Storage() storage.IStorage {
 
 func (s *ApiServer) Config() *config.Config {
 	return s.config
+}
+
+func (s *ApiServer) Echo() *echo.Echo {
+	return s.echoInstance
 }
