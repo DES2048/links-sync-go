@@ -62,14 +62,13 @@ func NewApiServer(config *config.Config) *ApiServer {
 	})
 
 	// setup handlers
-	visitedHandler := NewVisitedHandler(server)
 
 	visitedGroup := e.Group("/get-links")
-	visitedGroup.GET("", visitedHandler.getVisitedListHandler)
-	visitedGroup.POST("", visitedHandler.getVisitedByIds)
-	visitedGroup.GET("/:id", visitedHandler.getVisitedHandler)
-	visitedGroup.DELETE("/:id", visitedHandler.deleteVisitedHandler)
-	visitedGroup.PATCH("/:id", visitedHandler.patchVisitedHandler2)
+	visitedGroup.GET("", getVisitedListHandler(storage.VisitedRepo()))
+	visitedGroup.POST("", getVisitedByIds(storage.VisitedRepo()))
+	visitedGroup.GET("/:id", getVisitedHandler(storage.VisitedRepo()))
+	visitedGroup.DELETE("/:id", deleteVisitedHandler(storage.VisitedRepo()))
+	visitedGroup.PATCH("/:id", patchVisitedHandler2(storage.VisitedRepo()))
 
 	e.POST("/save-links", saveVisitedHandler(storage.VisitedRepo()))
 

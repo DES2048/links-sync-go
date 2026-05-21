@@ -3,12 +3,14 @@ package webapi
 import (
 	"bytes"
 	"encoding/json"
-	"links-sync-go/internal/storage"
-	"links-sync-go/internal/utils"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
+	"links-sync-go/internal/storage"
+	"links-sync-go/internal/utils"
+
+	validation "github.com/go-ozzo/ozzo-validation"
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
 )
@@ -65,15 +67,15 @@ func TestVisitedHandlers_SaveVisited(t *testing.T) {
 		})
 	}
 
-	e := echo.New()
+	e := server.Echo()
 	req := createRequest(http.MethodPost, "/", visitedDataCreate)
 	resp := httptest.NewRecorder()
 
 	c := e.NewContext(req, resp)
 
-	handler := NewVisitedHandler(server)
+	handler := saveVisitedHandler(server.Storage().VisitedRepo())
 
-	err := handler.saveVisitedHandler(c)
+	err := handler(c)
 
 	assert.Nil(t, err)
 	assert.Equal(t, 200, resp.Code)
@@ -106,41 +108,40 @@ func TestVisitedHandlers_SaveVisited(t *testing.T) {
 
 	// test validation
 
-	// TEST empty array
-	testData := []*storage.DbCreateVisited{}
-	req = createRequest(http.MethodPost, "/", testData)
-	resp = httptest.NewRecorder()
+	t.Run("empty visited", func(t *testing.T) {
+		// TEST empty array
+		testData := []*storage.DbCreateVisited{}
+		req = createRequest(http.MethodPost, "/", testData)
+		resp = httptest.NewRecorder()
 
-	c = e.NewContext(req, resp)
-	err = handler.saveVisitedHandler(c)
+		c = e.NewContext(req, resp)
+		err = handler(c)
 
-	assert.NotNil(t, err)
+		assert.NotNil(t, err)
 
-	httpErr := &echo.HTTPError{}
+		httpErr := &echo.HTTPError{}
 
-	assert.ErrorAs(t, err, &httpErr)
+		assert.ErrorAs(t, err, &httpErr)
 
-	assert.Equal(t, 400, httpErr.Code)
+		assert.Equal(t, 400, httpErr.Code)
+	})
 
-	// test required
-	testData = []*storage.DbCreateVisited{
-		{},
-	}
-	req = createRequest(http.MethodPost, "/", testData)
-	resp = httptest.NewRecorder()
+	t.Run("required fields", func(t *testing.T) {
+		testData := []*storage.DbCreateVisited{
+			{},
+		}
+		req = createRequest(http.MethodPost, "/save-links", testData)
+		resp = httptest.NewRecorder()
 
-	c = e.NewContext(req, resp)
-	err = handler.saveVisitedHandler(c)
+		c = e.NewContext(req, resp)
+		err = handler(c)
 
-	assert.NotNil(t, err)
+		assert.NotNil(t, err)
 
-	// errs := make(validation.Errors)
-
-	assert.ErrorAs(t, err, &httpErr)
-
-	assert.Equal(t, 400, httpErr.Code)
-
-	// test status
+		// errs := make(validation.Errors)
+		var validErr validation.Errors
+		assert.ErrorAs(t, err, &validErr)
+	})
 }
 
 func TestVisitedHandlers_GetByIds(t *testing.T) {
@@ -152,16 +153,16 @@ func TestVisitedHandlers_GetByIds(t *testing.T) {
 
 	server.Storage().VisitedRepo().AddBatch(visitedDataCreate)
 
-	e := echo.New()
+	e := server.Echo()
 
 	req := createRequest(http.MethodPost, "/", data)
 	resp := httptest.NewRecorder()
 
 	c := e.NewContext(req, resp)
 
-	handler := NewVisitedHandler(server)
+	handler := getVisitedByIds(server.Storage().VisitedRepo())
 
-	err := handler.getVisitedByIds(c)
+	err := handler(c)
 
 	assert.Nil(t, err)
 	assert.Equal(t, 200, resp.Code)
@@ -180,4 +181,142 @@ func TestVisitedHandlers_GetByIds(t *testing.T) {
 	}
 
 	assert.ElementsMatch(t, expected, respBoby)
+}
+
+func TestGetVisitedHandler(t *testing.T) {
+	server := TestServer(t)
+
+	e := server.Echo()
+	handler := getVisitedHandler(server.Storage().VisitedRepo())
+
+	visited := &storage.DbCreateVisited{
+		Id:     1,
+		Title:  "title",
+		Status: 1,
+	}
+
+	server.Storage().VisitedRepo().Add(visited)
+
+	t.Run("not found", func(t *testing.T) {
+		req := createRequest(http.MethodGet, "/get-links/2", nil)
+		resp := httptest.NewRecorder()
+
+		c := e.NewContext(req, resp)
+		c.SetPath("/get-links/:id")
+		c.SetParamNames("id")
+		c.SetParamValues("2")
+
+		err := handler(c)
+		assert.True(t, storage.IsErrNotFound(err))
+	})
+
+	t.Run("found", func(t *testing.T) {
+		req := createRequest(http.MethodGet, "/get-links/1", nil)
+		resp := httptest.NewRecorder()
+
+		c := e.NewContext(req, resp)
+		c.SetPath("/get-links/:id")
+		c.SetParamNames("id")
+		c.SetParamValues("1")
+		err := handler(c)
+		assert.Nil(t, err)
+		assert.Equal(t, 200, resp.Code)
+		var respBoby *storage.DbVisited
+		err = json.NewDecoder(resp.Body).Decode(&respBoby)
+		assert.Nil(t, err)
+		respBoby.AddDate = ""
+		assert.EqualValues(t, &storage.DbVisited{
+			Id:     visited.Id,
+			Title:  visited.Title,
+			Status: visited.Status,
+		}, respBoby)
+	})
+}
+
+func TestDeleteVisitedHandler(t *testing.T) {
+	server := TestServer(t)
+
+	e := server.Echo()
+	handler := deleteVisitedHandler(server.Storage().VisitedRepo())
+
+	visited := &storage.DbCreateVisited{
+		Id:     1,
+		Title:  "title",
+		Status: 1,
+	}
+
+	server.Storage().VisitedRepo().Add(visited)
+
+	t.Run("not found", func(t *testing.T) {
+		req := createRequest(http.MethodDelete, "/get-links/2", nil)
+		resp := httptest.NewRecorder()
+
+		c := e.NewContext(req, resp)
+		c.SetPath("/get-links/:id")
+		c.SetParamNames("id")
+		c.SetParamValues("2")
+
+		err := handler(c)
+		assert.True(t, storage.IsErrNotFound(err))
+	})
+
+	t.Run("del", func(t *testing.T) {
+		req := createRequest(http.MethodDelete, "/get-links/1", nil)
+		resp := httptest.NewRecorder()
+
+		c := e.NewContext(req, resp)
+		c.SetPath("/get-links/:id")
+		c.SetParamNames("id")
+		c.SetParamValues("1")
+		err := handler(c)
+		assert.Nil(t, err)
+		assert.Equal(t, 204, resp.Code)
+	})
+}
+
+func TestPatchVisitedHandler(t *testing.T) {
+	server := TestServer(t)
+
+	e := server.Echo()
+	handler := patchVisitedHandler2(server.Storage().VisitedRepo())
+
+	visited := &storage.DbCreateVisited{
+		Id:     1,
+		Title:  "title",
+		Status: 1,
+	}
+
+	server.Storage().VisitedRepo().Add(visited)
+
+	t.Run("not found", func(t *testing.T) {
+		req := createRequest(http.MethodPatch, "/get-links/2", map[string]any{"status": 2})
+		resp := httptest.NewRecorder()
+
+		c := e.NewContext(req, resp)
+		c.SetPath("/get-links/:id")
+		c.SetParamNames("id")
+		c.SetParamValues("2")
+
+		err := handler(c)
+		assert.True(t, storage.IsErrNotFound(err))
+	})
+
+	t.Run("status", func(t *testing.T) {
+		req := createRequest(http.MethodPatch, "/get-links/1", map[string]any{"status": 2})
+		resp := httptest.NewRecorder()
+
+		c := e.NewContext(req, resp)
+
+		c.SetPath("/get-links/:id")
+		c.SetParamNames("id")
+		c.SetParamValues("1")
+		err := handler(c)
+		assert.Nil(t, err)
+		assert.Equal(t, 200, resp.Code)
+
+		// get patched
+		patched, _ := server.Storage().VisitedRepo().Get(1)
+
+		assert.Equal(t, 2, patched.Status)
+	})
 }
