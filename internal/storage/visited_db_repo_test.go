@@ -77,6 +77,25 @@ func TestVisitedRepo_Add_WithIDAlreadyExists(t *testing.T) {
 	assert.ErrorAs(t, err, &tErr)
 }
 
+func TestVisitedRepo_Add_WithDefaultStatus(t *testing.T) {
+	db := storage.TestInMemoDb(t)
+	defer db.Close()
+
+	repo := storage.NewVisitedDbRepo(db)
+
+	data := &storage.DbCreateVisited{
+		Id:        1,
+		Title:     "test topic",
+		PosterUrl: "some url",
+		Status:    0,
+	}
+
+	got, err := repo.Add(data)
+
+	assert.Nil(t, err)
+	assert.Equal(t, 1, got.Status)
+}
+
 func TestVisitedRepo_AddBatch(t *testing.T) {
 	db := storage.TestInMemoDb(t)
 	defer db.Close()
