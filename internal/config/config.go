@@ -8,7 +8,7 @@ type Core struct {
 
 type Server struct {
 	Address string `yaml:"address" env:"SERVER_ADDRESS" env-default:":6500"`
-	ApiKey  string `yaml:"apiKey" env:"API_KEY" env-required:"true"`
+	ApiKey  string `yaml:"apiKey" env:"API_KEY"`
 }
 
 type Db struct {

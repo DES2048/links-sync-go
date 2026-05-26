@@ -106,12 +106,16 @@ func (s *ApiServer) SetupMiddleware() {
 	}))
 
 	e.Use(middleware.CORS())
-	e.Use(middleware.KeyAuthWithConfig(middleware.KeyAuthConfig{
-		AuthScheme: "Token",
-		Validator: func(auth string, c echo.Context) (bool, error) {
-			return auth == s.config.Server.ApiKey, nil
-		},
-	}))
+
+	// auth
+	if s.config.Server.ApiKey != "" {
+		e.Use(middleware.KeyAuthWithConfig(middleware.KeyAuthConfig{
+			AuthScheme: "Token",
+			Validator: func(auth string, c echo.Context) (bool, error) {
+				return auth == s.config.Server.ApiKey, nil
+			},
+		}))
+	}
 }
 
 func (s *ApiServer) Run() error {
