@@ -23,12 +23,27 @@ func NewVisitedDbRepo(db *sqlx.DB) *VisitedDbRepo {
 	return repo
 }
 
-func (r *VisitedDbRepo) List() ([]*DbVisited, error) {
+func (r *VisitedDbRepo) List(limit int, offset int) (*DBListMeta[*DbVisited], error) {
 	visiteds := []*DbVisited{}
 
-	err := r.db.Select(&visiteds, "select * from visited")
+	meta := &DBListMeta[*DbVisited]{}
 
-	return visiteds, err
+	err := r.db.Get(&meta.TotalCount, "select count(*) from visited")
+	if err != nil {
+		return nil, err
+	}
+
+	if meta.TotalCount == 0 {
+		return meta, nil
+	}
+	err = r.db.Select(&visiteds, "select * from visited limit ? offset ?", limit, offset)
+	if err != nil {
+		return nil, err
+	}
+
+	meta.Count = len(visiteds)
+	meta.Items = visiteds
+	return meta, err
 }
 
 func (r *VisitedDbRepo) ListByIds(ids []int) ([]*DbVisited, error) {

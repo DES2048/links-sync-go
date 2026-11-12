@@ -1,8 +1,6 @@
 package webapi
 
 import (
-	"encoding/json"
-	"net/http"
 	"strconv"
 
 	"links-sync-go/internal/storage"
@@ -17,13 +15,6 @@ func getIdParam(c echo.Context) (int, error) {
 		return id, echo.NewHTTPError(400, "invalid id")
 	}
 	return id, nil
-}
-
-func readBodyJson(r *http.Request, value any) error {
-	if err := json.NewDecoder(r.Body).Decode(value); err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, "failed to parse json")
-	}
-	return nil
 }
 
 func saveVisitedHandler(visitedRepo storage.IVisitedRepo) echo.HandlerFunc {
@@ -78,7 +69,20 @@ func getVisitedByIds(visitedRepo storage.IVisitedRepo) echo.HandlerFunc {
 
 func getVisitedListHandler(visitedRepo storage.IVisitedRepo) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		data, err := visitedRepo.List()
+		limit := new(30)
+		offset := new(0)
+		err := echo.QueryParamsBinder(c).
+			Int("start", offset).
+			Int("items", limit).
+			BindError()
+		if err != nil {
+			return err
+		}
+
+		if *offset > 0 {
+			*offset--
+		}
+		data, err := visitedRepo.List(*limit, *offset)
 		if err != nil {
 			return err
 		}

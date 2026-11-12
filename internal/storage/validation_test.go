@@ -19,7 +19,7 @@ func TestDBCreateVisited_Validation(t *testing.T) {
 			&DbCreateVisited{
 				Id:        1,
 				Title:     "title",
-				PosterUrl: "http://url",
+				PosterUrl: new("http://url"),
 				Status:    1,
 			},
 			nil,
@@ -30,7 +30,7 @@ func TestDBCreateVisited_Validation(t *testing.T) {
 			&DbCreateVisited{
 				Id:        0,
 				Title:     "title",
-				PosterUrl: "http://url",
+				PosterUrl: new("http://url"),
 				Status:    1,
 			},
 			validation.Errors{},
@@ -43,7 +43,7 @@ func TestDBCreateVisited_Validation(t *testing.T) {
 			&DbCreateVisited{
 				Id:        1,
 				Title:     "",
-				PosterUrl: "http://url",
+				PosterUrl: new("http://url"),
 				Status:    1,
 			},
 			validation.Errors{},
@@ -54,10 +54,9 @@ func TestDBCreateVisited_Validation(t *testing.T) {
 		{
 			"poster url empty",
 			&DbCreateVisited{
-				Id:        1,
-				Title:     "title",
-				PosterUrl: "",
-				Status:    1,
+				Id:     1,
+				Title:  "title",
+				Status: 1,
 			},
 			nil,
 			nil,
@@ -67,7 +66,7 @@ func TestDBCreateVisited_Validation(t *testing.T) {
 			&DbCreateVisited{
 				Id:        1,
 				Title:     "",
-				PosterUrl: "some",
+				PosterUrl: new("some"),
 				Status:    1,
 			},
 			validation.Errors{},

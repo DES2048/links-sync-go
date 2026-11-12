@@ -12,18 +12,24 @@ var (
 )
 
 type DbVisited struct {
-	Id        int    `db:"id"`
-	Title     string `db:"title"`
-	AddDate   string `db:"add_date"`
-	PosterUrl string `db:"poster_url"`
-	Status    int    `db:"status"`
+	Id        int     `db:"id" json:"id"`
+	Title     string  `db:"title" json:"title"`
+	AddDate   string  `db:"add_date" json:"add_date"`
+	PosterUrl *string `db:"poster_url" json:"poster_url,omitempty"`
+	Status    int     `db:"status" json:"status"`
+}
+
+type DBListMeta[D any] struct {
+	Count      int `json:"count"`
+	TotalCount int `json:"total_count"`
+	Items      []D `json:"items"`
 }
 
 type DbCreateVisited struct {
-	Id        int    `db:"id" json:"id"`
-	Title     string `db:"title" json:"title"`
-	PosterUrl string `db:"poster_url" json:"poster_url"`
-	Status    int    `db:"status" json:"status"`
+	Id        int     `db:"id" json:"id"`
+	Title     string  `db:"title" json:"title"`
+	PosterUrl *string `db:"poster_url" json:"poster_url"`
+	Status    int     `db:"status" json:"status"`
 }
 
 func (o *DbCreateVisited) Validate() error {

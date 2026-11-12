@@ -9,7 +9,7 @@ import (
 )
 
 type IVisitedRepo interface {
-	List() ([]*DbVisited, error)
+	List(limit int, offset int) (*DBListMeta[*DbVisited], error)
 	ListByIds(ids []int) ([]*DbVisited, error)
 	Add(data *DbCreateVisited) (*DbVisited, error)
 	AddBatch(data []*DbCreateVisited) error

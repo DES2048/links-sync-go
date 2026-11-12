@@ -19,12 +19,12 @@ var visitedDataCreate = []*storage.DbCreateVisited{
 	{
 		Id:        1,
 		Title:     "title1",
-		PosterUrl: "https://some_url",
+		PosterUrl: new("https://some_url"),
 	},
 	{
 		Id:        2,
 		Title:     "title2",
-		PosterUrl: "https://some_url2",
+		PosterUrl: new("https://some_url2"),
 		Status:    2,
 	},
 	{

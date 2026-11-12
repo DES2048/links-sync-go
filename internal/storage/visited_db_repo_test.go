@@ -1,6 +1,7 @@
 package storage_test
 
 import (
+	"strconv"
 	"testing"
 
 	"links-sync-go/internal/storage"
@@ -8,6 +9,13 @@ import (
 	"github.com/mattn/go-sqlite3"
 	"github.com/stretchr/testify/assert"
 )
+
+func clearAddDate(data []*storage.DbVisited) {
+	// unset AddDate for comparsion
+	for _, item := range data {
+		item.AddDate = ""
+	}
+}
 
 func TestVisitedRepo_Add(t *testing.T) {
 	db := storage.TestInMemoDb(t)
@@ -18,7 +26,7 @@ func TestVisitedRepo_Add(t *testing.T) {
 	data := &storage.DbCreateVisited{
 		Id:        1,
 		Title:     "test topic",
-		PosterUrl: "some url",
+		PosterUrl: new("some url"),
 		Status:    1,
 	}
 
@@ -86,7 +94,7 @@ func TestVisitedRepo_Add_WithDefaultStatus(t *testing.T) {
 	data := &storage.DbCreateVisited{
 		Id:        1,
 		Title:     "test topic",
-		PosterUrl: "some url",
+		PosterUrl: new("some url"),
 		Status:    0,
 	}
 
@@ -106,13 +114,13 @@ func TestVisitedRepo_AddBatch(t *testing.T) {
 		{
 			Id:        1,
 			Title:     "t1",
-			PosterUrl: "url1",
+			PosterUrl: new("url1"),
 			Status:    1,
 		},
 		{
 			Id:        2,
 			Title:     "t2",
-			PosterUrl: "url2",
+			PosterUrl: new("url2"),
 			Status:    2,
 		},
 	}
@@ -133,10 +141,10 @@ func TestVisitedRepo_AddBatch(t *testing.T) {
 	assert.Nil(t, err)
 
 	// get list
-	got, err := repo.List()
+	got, err := repo.List(-1, 0)
 
 	// unset AddDate for comparsion
-	for _, gotElem := range got {
+	for _, gotElem := range got.Items {
 		gotElem.AddDate = ""
 	}
 
@@ -144,13 +152,13 @@ func TestVisitedRepo_AddBatch(t *testing.T) {
 	assert.Nil(t, err)
 
 	// expect elems match
-	assert.ElementsMatch(t, expected, got)
+	assert.ElementsMatch(t, expected, got.Items)
 
 	// CASE add batch with existed id
 	elem := &storage.DbCreateVisited{
 		Id:        1,
 		Title:     "new title",
-		PosterUrl: "new poster url",
+		PosterUrl: new("new poster url"),
 	}
 
 	err = repo.AddBatch([]*storage.DbCreateVisited{elem})
@@ -170,43 +178,63 @@ func TestVisitedRepo_List(t *testing.T) {
 
 	repo := storage.NewVisitedDbRepo(db)
 
-	data := []*storage.DbCreateVisited{
-		{
-			Id:        1,
-			Title:     "t1",
-			PosterUrl: "url1",
+	DATA_LEN := 10
+	data := make([]*storage.DbCreateVisited, 0, DATA_LEN)
+	for i := 1; i <= 10; i++ {
+		data = append(data, &storage.DbCreateVisited{
+			Id:        i,
+			Title:     "t" + strconv.Itoa(i),
+			PosterUrl: new("url" + strconv.Itoa(i)),
 			Status:    1,
-		},
-		{
-			Id:        2,
-			Title:     "t2",
-			PosterUrl: "url2",
-			Status:    2,
-		},
-	}
-
-	expected := make([]*storage.DbVisited, 0, len(data))
-	for _, v := range data {
-		expected = append(expected, &storage.DbVisited{
-			Id:        v.Id,
-			Title:     v.Title,
-			PosterUrl: v.PosterUrl,
-			Status:    v.Status,
 		})
-
-		_, err := repo.Add(v)
-		assert.Nil(t, err)
 	}
 
-	got, err := repo.List()
-
-	for _, gotElem := range got {
-		gotElem.AddDate = ""
+	makeExpected := func(data []*storage.DbCreateVisited) []*storage.DbVisited {
+		expected := make([]*storage.DbVisited, 0, len(data))
+		for _, v := range data {
+			expected = append(expected, &storage.DbVisited{
+				Id:        v.Id,
+				Title:     v.Title,
+				PosterUrl: v.PosterUrl,
+				Status:    v.Status,
+			})
+		}
+		return expected
 	}
 
+	// add test data
+	err := repo.AddBatch(data)
 	assert.Nil(t, err)
 
-	assert.ElementsMatch(t, expected, got)
+	// test get all
+	expected := makeExpected(data)
+
+	got, err := repo.List(-1, 0)
+
+	assert.Nil(t, err)
+	assert.Equal(t, DATA_LEN, got.TotalCount)
+	assert.Equal(t, DATA_LEN, got.Count)
+
+	clearAddDate(got.Items)
+
+	assert.ElementsMatch(t, expected, got.Items)
+
+	// test limit offset
+	// first part
+	got, err = repo.List(6, 0)
+	assert.Nil(t, err)
+	assert.Equal(t, DATA_LEN, got.TotalCount)
+	assert.Equal(t, 6, got.Count)
+	clearAddDate(got.Items)
+	assert.ElementsMatch(t, expected[:6], got.Items)
+
+	// last part
+	got, err = repo.List(6, 6)
+	assert.Nil(t, err)
+	assert.Equal(t, DATA_LEN, got.TotalCount)
+	assert.Equal(t, 4, got.Count)
+	clearAddDate(got.Items)
+	assert.ElementsMatch(t, expected[6:], got.Items)
 }
 
 func TestVisitedRepo_Get(t *testing.T) {
@@ -241,7 +269,7 @@ func TestVisitedRepo_PartialUpdate(t *testing.T) {
 	forUpdate := &storage.DbCreateVisited{
 		Id:        1,
 		Title:     "title",
-		PosterUrl: "url1",
+		PosterUrl: new("url1"),
 		Status:    1,
 	}
 
