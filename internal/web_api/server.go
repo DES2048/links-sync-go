@@ -93,13 +93,15 @@ func (s *ApiServer) SetupMiddleware() {
 				slog.Int64("bytes_out", v.ResponseSize),
 			}
 
+			level := slog.LevelInfo
 			if v.Error != nil {
 				logAttrs = append(
 					logAttrs,
 					slog.String("err", v.Error.Error()),
 				)
+				level = slog.LevelError
 			}
-			slog.LogAttrs(context.Background(), slog.LevelInfo, "REQUEST", logAttrs...)
+			slog.LogAttrs(context.Background(), level, "REQUEST", logAttrs...)
 
 			return nil
 		},
